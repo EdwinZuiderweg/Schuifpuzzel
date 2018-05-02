@@ -1,0 +1,363 @@
+<!DOCTYPE = html>
+<html>
+<head>
+  <title>Schuifpuzzel</title>
+  <meta charset = utf-8>
+  <meta name = description  content = "mandelbrot fractal">
+  <meta name = keywords content = "KenKen, puzzle, puzzel, calcudoku, Kdoku, Sudoku,
+    computerprogramming, javaScript">
+  <style>
+    body {
+      font-family   : Arial, Helvetica, sans-serif;
+      background: #006666 url(../matrix.jpg);
+      color: #FFFF00;
+    }
+
+
+  </style>
+  <script language= JavaScript" type="text/javascript">
+
+    var img = new Image();
+    img.src = "Gorilla.jpg";
+    var krnr = 4;
+    var imgPuzzelStukken = new Array(8 * 8);
+    var LegePlek;
+    var OudeLegeplek;
+    var Husselnr, Husselmax;
+    var Pauzetijd;
+    var intScore;
+    var GameStarted;
+    var bx, by, ex, ey, Anix, Aniy,dx, dy, MaxSteps, Stepnr; //voor schuianimatie
+    for (var i = 0; i < (8 * 8); i++) {
+      imgPuzzelStukken[i] = new Array(2);
+    }
+
+    //**************************************************************************************
+    function LaadPicture() {
+      var canvas = document.getElementById("myCanvas");
+      var rect = canvas.getBoundingClientRect();
+      var ctx = canvas.getContext("2d");
+
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  }
+
+  //***************************************************************************************************
+  function StartPuzzel() {
+    var canvas = document.getElementById("myCanvas");
+    var ctx = canvas.getContext("2d");
+
+    LaadPicture();
+    IniPicture();
+    LegePlek = krnr *krnr-1;
+    OudeLegeplek = krnr *krnr-1; //om husselen eeficienter
+    ctx.fillStyle = "#FFFF00";
+    ctx.fillRect(0,0,canvas.width, canvas.height);
+    TekenSchuifpuzzel();
+    Husselmax = krnr * krnr * krnr;
+    Husselnr = 0;
+    intScore = 0;
+    var emScore = document.getElementById("idSchuifScore");
+    emScore.innerHTML = intScore;
+    Pauzetijd = Math.floor(3000 / Husselmax);
+    GameStarted = true;
+    Husselinterval = setInterval(function(){Husselen();}, Pauzetijd);
+  }
+
+  //**********************************************************************************
+  function IniPicture() {
+    var canvas = document.getElementById("myCanvas");
+    var ctx = canvas.getContext("2d");
+
+    var picSize = canvas.width / krnr;
+
+    var PSnr = 0;
+
+    for (var r = 0; r< krnr; r++) {
+      for (var k = 0; k< krnr; k++) {
+         imgPuzzelStukken[PSnr][0] = PSnr;
+         imgPuzzelStukken[PSnr][1] = ctx.getImageData(k* picSize, r * picSize, picSize, picSize);
+         PSnr++;
+      }
+    }
+
+  }
+
+  //**********************************************************************************
+  function Husselen() {
+    var Schuifrichting;
+    var Schuifnr;
+    var Gewisseld;
+
+    Gewisseld = false;
+    while (Gewisseld == false) {
+      Schuifrichting = Math.floor(Math.random() *4);
+      switch (Schuifrichting) {
+        case 0: if (LegePlek >= krnr) { //boven
+                   if ((LegePlek -krnr) != OudeLegeplek) {
+                     OudeLegeplek = LegePlek;
+                     Wissel(LegePlek - krnr, LegePlek);
+                     Gewisseld = true;
+                   }
+                 }
+                 break;
+        case 1: if (LegePlek < (krnr * (krnr-1))) { //beneden
+                  if (LegePlek + krnr != OudeLegeplek) {
+                    OudeLegeplek = LegePlek;
+                    Wissel(LegePlek + krnr, LegePlek);
+                    Gewisseld = true;
+                  }
+                }
+                break;
+        case 2: if (LegePlek % krnr != 0) { //links
+                  if (LegePlek -1 != OudeLegeplek) {
+                    OudeLegeplek = LegePlek;
+                    Wissel(LegePlek - 1, LegePlek);
+                    Gewisseld = true;
+                  }
+                }
+                break;
+        case 3: if (LegePlek % krnr != (krnr -1)) { //rechts
+                  if (LegePlek + 1 != OudeLegeplek) {
+                    OudeLegeplek = LegePlek;
+                    Wissel(LegePlek + 1, LegePlek);
+                    Gewisseld = true;
+                  }
+                }
+      }
+    }
+    Husselnr++;
+    if (Husselnr >= Husselmax) {
+      clearInterval(Husselinterval);
+    }
+    TekenSchuifpuzzel();
+  }
+
+  //********************************************************
+  function TekenSchuifpuzzel() {
+    var canvas = document.getElementById("myCanvas");
+    var ctx = canvas.getContext("2d");
+    var picSize = canvas.width / krnr;
+    var imgnr, PSnr;
+
+    PSnr = 0;
+    for (var r = 0; r< krnr; r++) {
+      for (var k = 0; k< krnr; k++) {
+        imgnr = imgPuzzelStukken[PSnr][0];
+        ctx.putImageData(imgPuzzelStukken[imgnr][1], k* (picSize), r * (picSize));
+        if (PSnr == LegePlek) {
+          ctx.fillRect(k * (picSize), r * (picSize), picSize, picSize);
+        }
+        PSnr++;
+      }
+    }
+
+
+    ctx.strokeStyle = "#FFFF00";
+    ctx.lineWidth = 1.5;
+    for (var r = 0; r<= krnr; r++) {
+      ctx.beginPath();
+      ctx.moveTo(0, r* picSize);
+      ctx.lineTo(canvas.width, r* picSize);
+      ctx.stroke();
+    }
+
+    for (var k = 0; k<= krnr; k++) {
+      ctx.beginPath();
+      ctx.moveTo(k* picSize, 0);
+      ctx.lineTo(k* picSize,canvas.width);
+      ctx.stroke();
+    }
+  }
+
+  //********************************************************
+  function Schuif(e) {
+    var canvas = document.getElementById("myCanvas");
+    var rect = canvas.getBoundingClientRect();
+    var picSize = canvas.width / krnr;
+    var XPos, YPos;
+    var PSnr, OudeLP;
+    var emScore;
+
+    if (GameStarted) {
+      XPos = Math.floor(e.clientX - rect.left);
+      YPos = Math.floor(e.clientY - rect.top);
+      PSnr = Math.floor(YPos/ picSize)* krnr + Math.floor(XPos/picSize);
+
+      if (ZijnBuren(PSnr, LegePlek)) {
+         OudeLP = LegePlek; //voor animatie
+         Wissel(PSnr, LegePlek);
+         intScore++;
+         emScore = document.getElementById("idSchuifScore");
+         emScore.innerHTML = intScore;
+         if (ControlSolution()) {
+           LaadPicture();
+           GameStarted = false;
+           var audio = new Audio('scorenoise.wav');
+           audio.play();
+           alert("Hoera, je hebt de puzzel opgelost in " + intScore + " beurten." );
+         }
+         else {
+           AnimatieVoorbereiding(PSnr, OudeLP);
+         }
+      }
+    }
+  }
+
+  //********************************************************
+  function AnimatieVoorbereiding(SchuifPic, SchuifDoel) {
+    var canvas = document.getElementById("myCanvas");
+    var picSize = canvas.width / krnr;
+    var ex, ey;
+
+    bx = (SchuifPic % krnr) * picSize;
+    by = (Math.floor(SchuifPic / krnr)) * picSize;
+    Anix = bx;
+    Aniy = by;
+    ex = (SchuifDoel % krnr) * picSize;
+    ey = (Math.floor(SchuifDoel / krnr)) * picSize;
+    MaxSteps = 20;
+    dx = picSize /MaxSteps;
+    dy = picSize /MaxSteps;
+    if (ex < Anix) {dx = -dx;}
+    if (ey < Aniy) {dy = -dy;}
+    if (ex == Anix) {dx = 0;}
+    if (ey == Aniy) {dy = 0;}
+    //alert(dx + ","+ dy);
+    Stepnr = 0;
+    Pauzetijd = Math.floor(200 / MaxSteps);
+
+    var audio = new Audio('contact.wav');
+    audio.play();
+
+    Schuifinterval = setInterval(function(){SchuifAnimatie(SchuifPic,SchuifDoel);}, Pauzetijd);
+  }
+
+  //**********************************************************************
+  function SchuifAnimatie(SchuifPic, SchuifDoel) {
+    var canvas = document.getElementById("myCanvas");
+    var ctx = canvas.getContext("2d");
+    var picSize = canvas.width / krnr;
+    var x1, y1, w, h;
+    var Schuifrichting;
+    ctx.fillStyle = "#FFFF00";
+
+
+    if (dx > 0) { //naar rechts
+      x1 = bx;
+      y1 = by;
+      w =  Math.floor(Anix) - bx;
+      h =  picSize;
+    }
+    if (dx < 0) { //naar links
+      x1 = Math.floor(Anix) + picSize;
+      y1 = by;
+      w =  bx - Math.floor(Anix);
+      h =  picSize;
+    }
+    if (dy > 0) { //naar beneden
+      x1 = bx;
+      y1 = by;
+      w  = picSize;
+      h  = Math.floor(Aniy) - by;
+    }
+    if (dy < 0) { //naar boven
+      x1 = bx;
+      y1 = Math.floor(Aniy) + picSize;
+      w =  picSize;
+      h =  by - Math.floor(Aniy);
+    }
+
+    ctx.fillRect(x1,y1, w, h);
+    var imgnr = imgPuzzelStukken[SchuifDoel][0];
+    ctx.putImageData(imgPuzzelStukken[imgnr][1] ,Math.floor(Anix) , Math.floor(Aniy));
+    Anix+= dx;
+    Aniy+= dy;
+    Stepnr++;
+    if (Stepnr >= MaxSteps) {
+      clearInterval(Schuifinterval);
+      TekenSchuifpuzzel();
+    }
+  }
+
+  //********************************************************
+  function Wissel(PS1, PS2) {
+    var Schuifnr;
+
+    Schuifnr = imgPuzzelStukken[LegePlek][0];
+    imgPuzzelStukken[PS2][0] = imgPuzzelStukken[PS1][0];
+    imgPuzzelStukken[PS1][0] = Schuifnr;
+    LegePlek = PS1;
+  }
+
+  //********************************************************
+  function ZijnBuren(PS1, PS2) {
+     var Buren = false;
+
+     if ((Math.abs(PS1 - PS2) == krnr) || (Math.abs(PS1 - PS2) == 1)) {
+       Buren = true;
+     }
+     return Buren;
+  }
+
+  //********************************************************
+  function ControlSolution() {
+     var Solution = true;
+     var PSnr;
+
+     PSnr = 0;
+     for (var r = 0; r< krnr; r++) {
+       for (var k = 0; k< krnr; k++) {
+          if (imgPuzzelStukken[PSnr][0] != PSnr) {
+            Solution = false;
+          }
+          PSnr++;
+       }
+     }
+     return Solution;
+  }
+
+  //********************************************************
+  function setPicture(Plaatje) {
+    img.src = Plaatje;
+    LaadPicture();
+  }
+
+  //********************************************************
+  function setOpsplitsing(Opsplitsing) {
+     krnr = parseInt(Opsplitsing);
+  }
+
+
+  </script>
+  <body onLoad ="LaadPicture()">
+  <h1><center>Schuifpuzzel</center></h1>
+     <center> Kies plaatje:
+     <select id ="idSchuifPicture" name = "nmSchuifPicture" onChange= "setPicture(this.value)">
+       <option selected value  = "Gorilla.jpg"> Gorilla
+       <option value =  "Tijger.png"> Tijger
+       <option  value = "Kameleon.jpg">Kameleon
+       <option value = "Giraffes.jpg">Giraffes
+       <option value = "Zebra.jpg">Zebra
+     </select>
+     <select id ="idOpsplitsing" name = "nmOpsplitsing" onChange= "setOpsplitsing(this.value)">
+       <option value  = "2"> 2 x 2
+       <option value =  "3"> 3 x 3
+       <option selected value = "4">4 x 4
+       <option value = "5">5 x 5
+       <option value = "6">6 x 6
+       <option value = "8">8 x 8
+     </select>
+     <br><br>
+
+    <canvas id="myCanvas" Onclick= "Schuif(event)" width="512" height="512" style="border:1px solid #000000;">
+    </canvas>
+    <br><br>
+    <button name="nmbtnStart" id = "idbtnStart" Onclick = "StartPuzzel()" >Start</button>
+    Aantal beurten: <em id="idSchuifScore"> 0 </em>
+    </center>
+
+  </center><br>
+
+  </body>
+</html>

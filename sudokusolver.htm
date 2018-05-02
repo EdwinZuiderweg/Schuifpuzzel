@@ -1,0 +1,864 @@
+<!DOCTYPE = html>
+<html>
+<head>
+  <title>SudokuSolver</title>
+  <meta charset = utf-8>
+  <meta name = description  content = "mandelbrot fractal">
+  <meta name = keywords content = "KenKen, puzzle, puzzel, calcudoku, Kdoku, Sudoku,   
+    computerprogramming, javaScript">
+  <style>
+    body {
+      font-family   : Arial, Helvetica, sans-serif;
+      background: #006666 url(../matrix.jpg);     
+      color: #FFFF00;
+    }
+
+    div.knoppenpaneel { 
+      //background: #003300;  
+      font-size : 90%;   
+      margin: auto;    
+      width: 600px;   
+    }
+
+    div.tekst  {         
+      color     : #FFFF00;  
+      background: #000000;  
+      margin    : 10px 10% 10px 10%;
+    }         
+    
+    a {
+      color: #c00; 
+    }
+  </style>
+    <script language= JavaScript" type="text/javascript">
+  <!--
+
+  var SudokuMatrix = new Array(16);
+  var SudokuBox  = new Array(16); 
+  var InPuzzelmatrix = new Array(16);
+  var ZekereGetallenMatrix = new Array(16); 
+  var InvulDieptematrix = new Array(16); 
+  var SelectieVeld = new Array(2);
+  var Openvelden = new Array(16*16); 
+  var SudokuSize = 3;  
+  var VeldSize;
+  var KaderRuimte;
+  var OplosRonde;
+  var AantalOpgelost;  
+  var OpenVeldAantal;
+  var SudokuOpgelost;
+  var Berekeningen;
+  
+  for (var i = 0; i < 16; i++) {
+     SudokuMatrix[i] = new Array(16); 
+     SudokuBox[i]= new Array(16);  
+     InPuzzelmatrix[i] = new Array(16); //getallen die al zijn ingevuld (boolean)
+     ZekereGetallenMatrix[i] = new Array(16); //getallen die zijn ingevuld of zijn berekend met menselijke methodes
+     InvulDieptematrix[i] = new Array(16); //hulpmatrix om ingevulde open getallen te kunnen terug draaien.
+  }
+  
+  for (var i = 0; i < 16 * 16 ; i++) {
+     Openvelden[i] = new Array(3); //k,r, aantalmogelijk;   
+  }  
+
+ //*****************************************
+ function LaadCijferCanvas() {
+    var canvas = document.getElementById("cijfercanvas");  
+    var ctx = canvas.getContext("2d");
+    var CijferVeldSize;
+    var X,Y;
+
+    canvas.style.visibility = "visible";    
+
+    CijferVeldSize = 48;
+    canvas.width = CijferVeldSize * (SudokuSize * SudokuSize +1);
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.strokeStyle = "#000000";   
+    ctx.lineWidth = 1;
+    for (var b = 1; b <= (SudokuSize * SudokuSize); b++) {
+      ctx.beginPath();
+      ctx.moveTo(b*(CijferVeldSize)+0.5, 0.5); //vertikaal
+      ctx.lineTo(b*(CijferVeldSize) +0.5, CijferVeldSize + 0.5);
+      ctx.stroke();        
+    }    
+
+    ctx.font = CijferVeldSize *0.6 + "px arial";   
+    ctx.textBaseline="middle";
+    ctx.textAlign="center";
+    ctx.fillStyle = '#000000';   
+    for (var b = 1; b <= SudokuSize * SudokuSize; b++) {    
+      X = (b+0.5) * CijferVeldSize;
+      Y = 0.5 * CijferVeldSize;
+      ctx.fillText(b,X,Y);  
+    }
+
+ }
+
+  //*****************************************
+  function LaadCanvas() {                  
+    var cijfercanvas = document.getElementById("cijfercanvas");
+
+    cijfercanvas.style.visibility = "hidden";
+    //initialisatie
+    IniSudoku();    
+    TekenVelden();
+  }
+
+  //*********************************************************************************
+  function VeranderSudokuSize() {     
+    SudokuSize = parseInt(document.forms[0].idSudokuSize.value);  
+    IniSudoku();  
+    TekenVelden();
+  }
+
+  //***************************************** 
+  function IniSudoku() {
+    cijfercanvas.style.visibility = "hidden";    
+    //initialisatie
+    for (var k = 0; k < SudokuSize * SudokuSize; k++) {     
+      for (var r = 0; r < SudokuSize * SudokuSize; r++) {
+         SudokuMatrix[k][r] = 0;
+         SudokuBox[k][r] = 0; 
+         InPuzzelmatrix[k][r] = false;
+         ZekereGetallenMatrix[k][r] = 0; 
+         InvulDieptematrix[k][r] = -1;         
+         SudokuOpgelost = false;
+         SelectieVeld[0] = -1; SelectieVeld[1]=-1;
+      }
+    }
+  }
+  
+  //***************************************** 
+  function NieuweSudoku() {
+    var cijfercanvas = document.getElementById("cijfercanvas");
+
+     
+    cijfercanvas.style.visibility = "hidden";    
+    //initialisatie
+    IniSudoku();
+    
+    TekenVelden();   
+  }
+
+  //***************************************** 
+  function WisBerekendeGetallen() {
+    for (var k = 0; k < SudokuSize * SudokuSize; k++) {     
+      for (var r = 0; r < SudokuSize * SudokuSize; r++) {
+         if (!InPuzzelmatrix[k][r]) {
+           SudokuMatrix[k][r] = 0;
+         }
+         SudokuBox[k][r] = 0; //wordt wel weer opnieuw bepaald
+         ZekereGetallenMatrix[k][r] = 0; 
+         InvulDieptematrix[k][r] = -1;
+         SudokuOpgelost = false;
+         SelectieVeld[0] = -1; SelectieVeld[1]=-1;
+      }
+    }
+    TekenVelden();     
+  }
+
+  //*********************************************************************
+  function SelectVeld(e) {
+    var canvas = document.getElementById("myCanvas");
+    var rect = canvas.getBoundingClientRect();
+    var ctx = canvas.getContext("2d");
+    var Xpos,Ypos;    
+    var VeldK, VeldR; 
+
+
+    Xpos = Math.floor(e.clientX - rect.left);
+    Ypos = Math.floor(e.clientY - rect.top);
+        
+    VeldK = Math.floor((Xpos - KaderRuimte)/ VeldSize);
+    VeldR = Math.floor((Ypos - KaderRuimte)/ VeldSize);          
+    if ((VeldK>= 0) && (VeldK< (SudokuSize* SudokuSize)) && (VeldR >= 0)&& (VeldR< (SudokuSize* SudokuSize))) {
+      SelectieVeld[0] = VeldK;
+      SelectieVeld[1] = VeldR;    
+      TekenVelden();
+      LaadCijferCanvas();
+    }
+  }
+
+  //*********************************************************************************
+  function TekenVelden() {
+    var canvas = document.getElementById("myCanvas");  
+    var rect = canvas.getBoundingClientRect();    
+    var ctx = canvas.getContext("2d");        
+    var X,Y;
+    var cijfercanvas = document.getElementById("cijfercanvas");
+ 
+    cijfercanvas.style.visibility = "hidden";        
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    KaderRuimte = 20;    
+    VeldSize = Math.floor((canvas.width - (2 * KaderRuimte)) / (SudokuSize* SudokuSize));   
+         
+    //kleur geselecteerd veld    
+    for (var k = 0; k < SudokuSize * SudokuSize; k++) {     
+      for (var r = 0; r < SudokuSize * SudokuSize; r++) {         
+         if ((k == SelectieVeld[0]) && (r==SelectieVeld[1])) {           
+           ctx.fillStyle = "#00FF00";         
+         }
+         else {
+           ctx.fillStyle = "#FFFFFF";    
+         }
+         ctx.fillRect(k*VeldSize+KaderRuimte, r*VeldSize + KaderRuimte,VeldSize,VeldSize);                  
+      }
+    } 
+
+
+    //teken lijnen sudoku
+    ctx.strokeStyle = "#000000";    
+    for (var b = 0; b <= SudokuSize * SudokuSize; b++) { 
+       ctx.beginPath();
+       if (b % SudokuSize == 0) {ctx.lineWidth = 5;}
+       else {ctx.lineWidth = 0.7;}
+       ctx.moveTo(b*VeldSize+ KaderRuimte+0.5,KaderRuimte+0.5); //vertikaal
+       ctx.lineTo(b*VeldSize+ KaderRuimte+0.5, (SudokuSize * SudokuSize * VeldSize) + KaderRuimte+0.5);
+       ctx.stroke();   
+       ctx.beginPath();    
+       ctx.moveTo(KaderRuimte +0.5,b*VeldSize+ KaderRuimte+0.5); //horizontaal
+       ctx.lineTo((SudokuSize * SudokuSize * VeldSize) + KaderRuimte+0.5,b*VeldSize+ KaderRuimte+0.5);
+       ctx.stroke();
+    }          
+
+    ctx.font = VeldSize*0.5 + "px arial";   
+    ctx.textBaseline="middle";
+    ctx.textAlign="center";   
+       
+    for (var k = 0; k < SudokuSize * SudokuSize; k++) {     
+      for (var r = 0; r < SudokuSize * SudokuSize; r++) {
+        if (SudokuMatrix[k][r]>0) {
+          if (InPuzzelmatrix[k][r]==true) {             
+             ctx.fillStyle = "#0000FF";
+          }         
+          else {             
+            if (ZekereGetallenMatrix[k][r]>0) {
+             ctx.fillStyle = "#00FF00";
+            }         
+            if (ZekereGetallenMatrix[k][r] == 0) { 
+              ctx.fillStyle = "#FF0000";
+            }
+          }  
+       
+          X = (k + 0.5)* VeldSize + KaderRuimte;
+          Y = (r + 0.5)* VeldSize + KaderRuimte;               
+          ctx.fillText(SudokuMatrix[k][r],X,Y);  
+        } 
+      }
+    }
+  }
+
+  //*********************************************************************
+  function SelectCijfer(e) {
+    var canvas = document.getElementById("cijfercanvas");
+    var rect = canvas.getBoundingClientRect();
+    var ctx = canvas.getContext("2d");
+    var Xpos, Cijfer;    
+
+    
+    Xpos = Math.floor(e.clientX - rect.left);
+    
+    Cijfer = Math.floor(Xpos/(canvas.width / ((SudokuSize * SudokuSize)+1)));    
+    SudokuMatrix[SelectieVeld[0]][SelectieVeld[1]] = Cijfer; 
+    if (Cijfer > 0) {  
+      InPuzzelmatrix[SelectieVeld[0]][SelectieVeld[1]] = true; 
+    }
+    else {
+      InPuzzelmatrix[SelectieVeld[0]][SelectieVeld[1]] = false;  
+    }
+    SelectieVeld[0] = -1; SelectieVeld[1] = -1;    
+    TekenVelden(); 
+  }
+
+     
+  //*********************************************************************
+  function SolveSudoku() {  
+    OplosRonde = 0;  
+
+     //1) maak arrays aan voor de getallenboxen
+     for (var k = 0; k < SudokuSize * SudokuSize; k++) {     
+       for (var r = 0; r < SudokuSize * SudokuSize; r++) { 
+          Boxnr = BepaalBoxNummer(k, r);
+          BoxGetal = BepaalBoxGetal(k,r);
+          SudokuBox[Boxnr][BoxGetal] = SudokuMatrix[k][r];          
+       }
+     }       
+     KraakSudoku();
+  }
+
+     
+  //*********************************************************************
+  function KraakSudoku() {                
+  var Opgelosttotnutoe;
+  var SudokuVelden;
+     SudokuVelden = SudokuSize * SudokuSize * SudokuSize * SudokuSize;
+     do  {
+       Opgelosttotnutoe = TelAantalOpgelost();     
+       SchijnwerperBoxMethode();    
+       SchijnwerperKolomMethode();  
+       SchijnwerperRijMethode();
+       UniekeWaardenMethode();
+       AantalOpgelost = TelAantalOpgelost();     
+       if (AantalOpgelost == SudokuVelden) {SudokuOpgelost = true;}       
+         TekenVelden();          
+       if ((Opgelosttotnutoe == AantalOpgelost) && (AantalOpgelost < SudokuVelden)) {Oplosmodus = 1;} //brute force!
+     } while (AantalOpgelost > Opgelosttotnutoe)
+
+     if (SudokuOpgelost == false) {   
+       for (var k = 0; k < SudokuSize * SudokuSize; k++) {     
+         for (var r = 0; r < SudokuSize * SudokuSize; r++) {
+           ZekereGetallenMatrix[k][r] = SudokuMatrix[k][r];
+         }
+       }    
+       Berekeningen = 0;
+       OpenVeldAantal = BepaalOpenVelden();
+       SorteerOpenVelden();                                                      
+       SudokuOpgelost = LosopBruteForce(0);        
+       if ((Berekeningen > 50000) &&  (!SudokuOpgelost)) {
+          alert("Proces afgebroken. Maximale rekentijd overschreden.");}
+       TekenVelden();
+       AantalOpgelost = TelAantalOpgelost();    
+     }        
+  }
+  
+  
+  //*********************************************************************
+  function LosopBruteForce(OpenVeldnr) {
+    var Knr, Rnr;  
+    var GetalOK;
+    var Getal;
+    var InvulModus;
+    var OldAantal;      
+    var Doorgaan;
+    var Boxnr, BoxGetal;
+
+    if (Berekeningen>50000) { //breek af als het te lang duurt, miljoen
+      return false;
+    }    
+    Knr =  Openvelden[OpenVeldnr][0];
+    Rnr =  Openvelden[OpenVeldnr][1];
+    Boxnr = BepaalBoxNummer(Knr, Rnr);
+    BoxGetal = BepaalBoxGetal(Knr,Rnr);
+
+    Invulmodus = false; 
+    GetalOK = true;
+    Doorgaan = true;
+    if (SudokuMatrix[Knr][Rnr] == 0) { //kan tijdelijk zijn ingevuld
+    Getal = 1;        
+    while (Doorgaan) {
+       GetalOK = true; 
+       Berekeningen++;             
+       if (GetalinRij(Getal, Rnr)) {GetalOK = false;}       
+       if (GetalinKolom(Getal, Knr)) {GetalOK = false;}
+       if (GetalinBox(Getal,Knr,Rnr)) {GetalOK = false;}       
+       if (GetalOK==true) { //correct getal
+         SudokuMatrix[Knr][Rnr] = Getal; 
+         SudokuBox[Boxnr][BoxGetal] = Getal;
+         //nu weer getallen berekenen
+         InvulModus = true;
+         while(InvulModus) {   
+           OldAantal = TelAantalOpgelost();
+           SchijnwerperBoxMethode();    
+           SchijnwerperKolomMethode();  
+           SchijnwerperRijMethode();
+           UniekeWaardenMethode();           
+           AantalOpgelost = TelAantalOpgelost();                   
+           if (OldAantal == AantalOpgelost) {InvulModus = false;}
+         }
+         //om ingevulde getallen te markeren om later te kunnen terugdraaien zo nodig
+         for (var k = 0; k < SudokuSize * SudokuSize; k++) {     
+           for (var r = 0; r < SudokuSize * SudokuSize; r++) {
+             if ((SudokuMatrix[k][r] > 0) && (ZekereGetallenMatrix[k][r] == 0) && (InvulDieptematrix[k][r]== -1)) {
+               InvulDieptematrix[k][r] = OpenVeldnr;
+             }
+           }
+         }          
+         if ((OpenVeldnr + 1) < OpenVeldAantal) {GetalOK = LosopBruteForce(OpenVeldnr+1);} 
+         if (GetalOK == false) {
+           SudokuMatrix[Knr][Rnr] = 0;
+           SudokuBox[Boxnr][BoxGetal] = 0;
+
+           for (var k = 0; k < SudokuSize * SudokuSize; k++) {     
+             for (var r = 0; r < SudokuSize * SudokuSize; r++) {
+               if (InvulDieptematrix[k][r] == OpenVeldnr) {             
+                 SudokuMatrix[k][r] = 0;
+                 SudokuBox[BepaalBoxNummer(k, r)][BepaalBoxGetal(k,r)]= 0; 
+                 InvulDieptematrix[k][r] = -1;
+               } 
+             }
+           }
+         }            
+         
+         if (GetalOK == true) { //waarde ok
+           return GetalOK;
+         }  
+       }       
+       if (GetalOK == false) {
+         if (Getal < (SudokuSize * SudokuSize)) {
+            Getal++;
+         }
+         else { 
+           return GetalOK;
+         } 
+       }
+    } //of while 
+    }
+    else { //SudokuMatrix[Knr][Rnr] > 0       
+      if ((OpenVeldnr + 1) < OpenVeldAantal) {GetalOK = LosopBruteForce(OpenVeldnr+1);}         
+      else {GetalOK = true; return GetalOK;}
+    } 
+     
+    return GetalOK;          
+  }
+
+  //*********************************************************************
+  function SorteerOpenVelden() {     
+    var HulpOpenVeld = new Array(3);  
+    var Doorgaan;
+    //bubblesort
+
+    Doorgaan = true;
+    while (Doorgaan) { 
+      Doorgaan = false;              
+      for (var v = 0; v < OpenVeldAantal-1; v++) {
+         if ((Openvelden[v][2]) > (Openvelden[v+1][2])) { //zo ja dan omwisselen                      
+           HulpOpenVeld[0] = Openvelden[v][0];
+           HulpOpenVeld[1] = Openvelden[v][1];
+           HulpOpenVeld[2] = Openvelden[v][2];
+           Openvelden[v][0] = Openvelden[v+1][0]; 
+           Openvelden[v][1] = Openvelden[v+1][1];
+           Openvelden[v][2] = Openvelden[v+1][2];
+           Openvelden[v+1][0] = HulpOpenVeld[0];
+           Openvelden[v+1][1] = HulpOpenVeld[1];
+           Openvelden[v+1][2] = HulpOpenVeld[2]; 
+           Doorgaan = true;
+         }         
+      }   
+    }
+  }  
+
+  //*********************************************************************
+  function BepaalOpenVelden() {
+  var OpenVeldnr;
+  var GetalMogelijk = new Array(SudokuSize);
+  var GetallenMogelijk;
+
+    OpenVeldnr = 0;    
+    for (var k = 0; k < SudokuSize * SudokuSize; k++) {     
+      for (var r = 0; r < SudokuSize * SudokuSize; r++) {          
+         if (SudokuMatrix[k][r] == 0) {
+            Openvelden[OpenVeldnr][0] = k;
+            Openvelden[OpenVeldnr][1] = r;            
+            for (var Getal = 0; Getal < SudokuSize* SudokuSize; Getal++) {
+               GetalMogelijk[Getal] = true;  
+            }           
+            for (var Getal = 1; Getal <= SudokuSize * SudokuSize; Getal++) {
+              if (GetalinRij(Getal, r)) {GetalMogelijk[Getal-1]= false;}
+              if (GetalinKolom(Getal, k)) {GetalMogelijk[Getal-1] = false;}
+              if (GetalinBox(Getal,k,r)) {GetalMogelijk[Getal-1] =false;}                 
+            }            
+            GetallenMogelijk = 0;
+            for (var Getal = 0; Getal < SudokuSize * SudokuSize; Getal++) {
+               if  (GetalMogelijk[Getal] == true) {GetallenMogelijk++;} 
+            } 
+            Openvelden[OpenVeldnr][2] = GetallenMogelijk;            
+            OpenVeldnr++;             
+         }           
+      }      
+    }  
+    
+    return OpenVeldnr;
+  }      
+
+  //*********************************************************************
+  function TelAantalOpgelost() {
+    var Opgelost;
+    Opgelost = 0;
+    for (var k = 0; k < SudokuSize * SudokuSize; k++) {     
+      for (var r = 0; r < SudokuSize * SudokuSize; r++) {
+         if (SudokuMatrix[k][r] > 0) {Opgelost++;}
+      }
+    } 
+    return Opgelost;
+  }
+
+
+  //*********************************************************************
+  function SchijnwerperBoxMethode() {
+     var AantalOntbrekend, AantalBeschikbaar;
+     var GetalAanwezig = new Array(SudokuSize * SudokuSize);
+     var OntbrekendeGetallen = new Array(SudokuSize * SudokuSize);
+     var BeschikbareVelden   = new Array(SudokuSize * SudokuSize);
+
+      
+     for (var Boxnr = 0; Boxnr < SudokuSize * SudokuSize; Boxnr++) {
+        //2) kijk per box welke getallen ontbreken
+        //initialisatie        
+          
+        for (var i = 0; i < SudokuSize * SudokuSize; i++) {
+          GetalAanwezig[i] = false;
+          OntbrekendeGetallen[i] = 0;
+        }
+        for (var BoxGetal = 0; BoxGetal < SudokuSize * SudokuSize; BoxGetal++) {
+           if (SudokuBox[Boxnr][BoxGetal]> 0) {
+              GetalAanwezig[SudokuBox[Boxnr][BoxGetal]-1] = true;     
+           }
+        }
+        AantalOntbrekend = 0;
+        for (var i = 0; i < SudokuSize * SudokuSize; i++) {
+           if  (GetalAanwezig[i]==false) {
+              OntbrekendeGetallen[AantalOntbrekend] = i + 1; 
+              AantalOntbrekend++;                      
+           }   
+        } 
+        
+        //ga de ontbrekende getallen bij langs
+        for (var i = 0; i < AantalOntbrekend; i++) {
+          //kijk welke velden vd box beschikbaar zijn voor betreffend getal
+          for (var BoxGetal = 0; BoxGetal < SudokuSize * SudokuSize; BoxGetal++) {
+             BeschikbareVelden[BoxGetal] = VeldBeschikbaar(Boxnr, BoxGetal, OntbrekendeGetallen[i]);               
+          }
+          
+          AantalBeschikbaar = 0;
+          for (var BoxGetal = 0; BoxGetal < SudokuSize * SudokuSize; BoxGetal++) {
+            if (BeschikbareVelden[BoxGetal] ==true) {AantalBeschikbaar++;}     
+          }
+          
+          if (AantalBeschikbaar == 1) { //maar 1 veld beschikbaar voor ontbrekend getal: kan worden ingevuld dus.
+            for (var BoxGetal = 0; BoxGetal < SudokuSize * SudokuSize; BoxGetal++) {
+              if (BeschikbareVelden[BoxGetal] ==true) {
+                 SudokuBox[Boxnr][BoxGetal] =  OntbrekendeGetallen[i];  
+                 SudokuMatrix[BepaalMatrixKolom(Boxnr,BoxGetal)][BepaalMatrixRij(Boxnr,BoxGetal)] = OntbrekendeGetallen[i];                 
+              }     
+            }
+          }                                               
+        }
+     }
+  } 
+  
+  //*********************************************************************
+  function SchijnwerperKolomMethode() {
+     var AantalOntbrekend, AantalBeschikbaar;
+     var GetalAanwezig = new Array(SudokuSize * SudokuSize);
+     var OntbrekendeGetallen = new Array(SudokuSize * SudokuSize);
+     var BeschikbareVelden   = new Array(SudokuSize * SudokuSize);
+
+      
+     for (var k = 0; k < SudokuSize * SudokuSize; k++) {          
+        for (var i = 0; i < SudokuSize * SudokuSize; i++) {
+          GetalAanwezig[i] = false;
+          OntbrekendeGetallen[i] = 0;
+        }
+        for (var r = 0; r < SudokuSize * SudokuSize; r++) {
+           if (SudokuMatrix[k][r]> 0) {
+              GetalAanwezig[SudokuMatrix[k][r]-1] = true;     
+           }
+        }
+        AantalOntbrekend = 0;
+        for (var i = 0; i < SudokuSize * SudokuSize; i++) {
+           if  (GetalAanwezig[i]==false) {
+              OntbrekendeGetallen[AantalOntbrekend] = i + 1; 
+              AantalOntbrekend++;                      
+           }   
+        } 
+        
+        //ga de ontbrekende getallen bij langs
+        for (var i = 0; i < AantalOntbrekend; i++) {
+          //kijk welke velden vd kolom beschikbaar zijn voor betreffend getal
+          for (var r = 0; r < SudokuSize * SudokuSize; r++) {
+             BeschikbareVelden[r] = VeldKolomBeschikbaar(k, r, OntbrekendeGetallen[i]);               
+          }
+          
+          AantalBeschikbaar = 0;
+          for (var r = 0; r < SudokuSize * SudokuSize; r++) {
+            if (BeschikbareVelden[r] ==true) {AantalBeschikbaar++;}     
+          }
+          
+          if (AantalBeschikbaar == 1) { //maar 1 veld beschikbaar voor ontbrekend getal: kan worden ingevuld dus.
+            for (var r = 0; r < SudokuSize * SudokuSize; r++) {
+              if (BeschikbareVelden[r] ==true) {
+                 SudokuMatrix[k][r] = OntbrekendeGetallen[i];
+                 SudokuBox[BepaalBoxNummer(k, r)][BepaalBoxGetal(k,r)] =  OntbrekendeGetallen[i];  
+              }     
+            }
+          }                                               
+        }
+     }
+  }
+
+  //*********************************************************************
+  function SchijnwerperRijMethode() {
+     var AantalOntbrekend, AantalBeschikbaar;
+     var GetalAanwezig = new Array(SudokuSize * SudokuSize);
+     var OntbrekendeGetallen = new Array(SudokuSize * SudokuSize);
+     var BeschikbareVelden   = new Array(SudokuSize * SudokuSize);
+
+      
+     for (var r = 0; r < SudokuSize * SudokuSize; r++) {          
+        for (var i = 0; i < SudokuSize * SudokuSize; i++) {
+          GetalAanwezig[i] = false;
+          OntbrekendeGetallen[i] = 0;
+        }
+        for (var k = 0; k < SudokuSize * SudokuSize; k++) {
+           if (SudokuMatrix[k][r]> 0) {
+              GetalAanwezig[SudokuMatrix[k][r]-1] = true;     
+           }
+        }
+        AantalOntbrekend = 0;
+        for (var i = 0; i < SudokuSize * SudokuSize; i++) {
+           if  (GetalAanwezig[i]==false) {
+              OntbrekendeGetallen[AantalOntbrekend] = i + 1; 
+              AantalOntbrekend++;                      
+           }   
+        } 
+        
+        //ga de ontbrekende getallen bij langs
+        for (var i = 0; i < AantalOntbrekend; i++) {
+          //kijk welke velden vd rij beschikbaar zijn voor betreffend getal
+          for (var k = 0; k < SudokuSize * SudokuSize; k++) {
+             BeschikbareVelden[k] = VeldRijBeschikbaar(k, r, OntbrekendeGetallen[i]);               
+          }
+          
+          AantalBeschikbaar = 0;
+          for (var k = 0; k < SudokuSize * SudokuSize; k++) {
+            if (BeschikbareVelden[k] ==true) {AantalBeschikbaar++;}     
+          }
+          
+          if (AantalBeschikbaar == 1) { //maar 1 veld beschikbaar voor ontbrekend getal: kan worden ingevuld dus.
+            for (var k = 0; k < SudokuSize * SudokuSize; k++) {
+              if (BeschikbareVelden[k] ==true) {
+                 SudokuMatrix[k][r] = OntbrekendeGetallen[i];
+                 SudokuBox[BepaalBoxNummer(k, r)][BepaalBoxGetal(k,r)] =  OntbrekendeGetallen[i];  
+              }     
+            }
+          }                                               
+        }
+     }
+  }
+
+  //*****************************************************
+  function UniekeWaardenMethode() {
+    var AantalMogelijk;
+    var AantalOntbrekend;
+
+    var GetalMogelijk = new Array(SudokuSize * SudokuSize);
+    var OntbrekendeGetallen = new Array(SudokuSize * SudokuSize);
+    var Getal;
+   
+    //kijk per veld of er misschien één tussen zit waar maar een waarde kan worden ingevuld
+    for (var k=0; k < SudokuSize * SudokuSize; k++) {
+       for (var r=0; r < SudokuSize * SudokuSize; r++) {          
+          if (SudokuMatrix[k][r] == 0) {
+            
+            //initialiseer: voorlopig alle getallen mogelijk
+            for (var Getal=0; Getal < SudokuSize * SudokuSize; Getal++) {
+               GetalMogelijk[Getal] = true;
+            }            
+            
+            for (var Getal=1; Getal < SudokuSize * SudokuSize + 1; Getal++) {
+               if (GetalinRij(Getal, r)) {GetalMogelijk[Getal-1] = false;}
+               if (GetalinKolom(Getal, k)) {GetalMogelijk[Getal-1] = false;}
+               if (GetalinBox(Getal,k,r)) {GetalMogelijk[Getal-1] =false;}
+            }                            
+            //alert("Goedenavond!");    
+            AantalMogelijk = 0;
+            for (var i = 0; i < SudokuSize * SudokuSize; i++) {              
+              if  (GetalMogelijk[i]==true) {              
+                Getal = i+1;
+                AantalMogelijk++; 
+              }               
+            }
+            if (AantalMogelijk == 1) { //unieke waarde, kan worden ingevuld
+              SudokuMatrix[k][r] = Getal;
+              SudokuBox[BepaalBoxNummer(k, r)][BepaalBoxGetal(k,r)] =  Getal;             
+            }     
+          }
+       }
+    }  
+  }
+
+  //*****************************************************
+  function GetalinRij(Getal, Rij) {
+    for (var k=0; k < SudokuSize * SudokuSize; k++) {
+       if (SudokuMatrix[k][Rij] == Getal) {
+          return true;
+       }
+    }
+    return false;
+  }
+  //*****************************************************
+  function GetalinKolom(Getal, Kolom) {
+     for (var r=0; r < SudokuSize * SudokuSize ; r++) {
+       if (SudokuMatrix[Kolom][r] == Getal) {
+         return true;
+       }
+     }
+     return false;
+  }
+  //*****************************************************
+  function GetalinBox(Getal, Kolom, Rij) {
+     var Boxnr;
+
+     Boxnr = BepaalBoxNummer(Kolom, Rij);
+
+     for (var BoxGetal=0; BoxGetal < SudokuSize * SudokuSize; BoxGetal++) {
+       if (SudokuBox[Boxnr][BoxGetal] == Getal) {
+          return true;
+       }
+     }
+     return false;
+  }
+
+  //*********************************************************************
+  function VeldKolomBeschikbaar(kolom, rij, Getal) {
+     var Beschikbaar;
+     var Boxnr;
+
+     Beschikbaar = true;
+     //veld al bezet?
+     if (SudokuMatrix[kolom][rij]>0) {
+        Beschikbaar = false;        
+        return Beschikbaar;
+     }  
+
+     Boxnr = BepaalBoxNummer(kolom, rij); 
+       
+     //kijk of Getal niet in betreffende box zit
+     for (var BoxGetal = 0; BoxGetal < SudokuSize * SudokuSize; BoxGetal++) { 
+        if (SudokuBox[Boxnr][BoxGetal] == Getal) {
+           Beschikbaar = false;
+           return Beschikbaar;
+        }   
+     }
+     
+     //kijk of Getal niet in betreffende Rij zit
+     for (var k = 0; k < SudokuSize * SudokuSize; k++) { 
+        if (SudokuMatrix[k][rij] == Getal) {
+           Beschikbaar = false;
+           return Beschikbaar;
+        }   
+     }     
+     return Beschikbaar;
+     
+  } 
+
+  //*********************************************************************
+  function VeldRijBeschikbaar(kolom, rij, Getal) {
+     var Beschikbaar;
+     var Boxnr;
+
+     Beschikbaar = true;
+     //veld al bezet?
+     if (SudokuMatrix[kolom][rij]>0) {
+        Beschikbaar = false;        
+        return Beschikbaar;
+     }  
+
+     Boxnr = BepaalBoxNummer(kolom, rij); 
+       
+     //kijk of Getal niet in betreffende box zit
+     for (var BoxGetal = 0; BoxGetal < SudokuSize * SudokuSize; BoxGetal++) { 
+        if (SudokuBox[Boxnr][BoxGetal] == Getal) {
+           Beschikbaar = false;
+           return Beschikbaar;
+        }   
+     }
+     
+     //kijk of Getal niet in betreffende Kolom zit
+     for (var r = 0; r < SudokuSize * SudokuSize; r++) { 
+        if (SudokuMatrix[kolom][r] == Getal) {
+           Beschikbaar = false;
+           return Beschikbaar;
+        }   
+     }     
+     return Beschikbaar;     
+  }
+
+  //*********************************************************************
+  function VeldBeschikbaar(Boxnr, BoxGetal, Getal) {
+     var Beschikbaar;
+     var Knr, Rnr;
+
+     Beschikbaar = true;
+     //veld al bezet?
+     if (SudokuBox[Boxnr][BoxGetal]>0) {
+        Beschikbaar = false;        
+     }  
+      
+     Knr = BepaalMatrixKolom(Boxnr, BoxGetal);
+     Rnr = BepaalMatrixRij(Boxnr, BoxGetal);    
+     //alert(Boxnr + "," + BoxGetal + "," + Knr + "," + Rnr); 
+     for (var k = 0; k < SudokuSize * SudokuSize; k++) { 
+        if (SudokuMatrix[k][Rnr] == Getal) {
+           Beschikbaar = false;
+        }   
+     }
+     for (var r = 0; r < SudokuSize * SudokuSize; r++) { 
+        if (SudokuMatrix[Knr][r] == Getal) {
+           Beschikbaar = false;
+        }   
+     }     
+     return Beschikbaar;
+  }      
+
+  //*********************************************************************
+  function BepaalBoxNummer(Knr, Rnr) {
+     var Bnr; //VKnr = Nummer van de box VRnr = Getalnummer van box (boven naar onderen, links naar rechts voor beiden)
+   
+     Bnr = SudokuSize * Math.floor(Rnr / SudokuSize) + Math.floor(Knr / SudokuSize);
+     return Bnr;
+  }
+
+   //*********************************************************************
+   function BepaalBoxGetal(Knr,Rnr) {
+      var BG; 
+
+      BG = (Rnr % SudokuSize) * SudokuSize + (Knr % SudokuSize);
+      return BG;
+   }
+
+   //*********************************************************************
+   function BepaalMatrixRij(Boxnr,Teller) {
+      var Rnr = Math.floor(Boxnr / SudokuSize) * SudokuSize + Math.floor(Teller / SudokuSize);      
+      return Rnr;
+   }
+    
+   //*********************************************************************
+   function BepaalMatrixKolom(Boxnr,Teller) {
+      var Knr = (Boxnr % SudokuSize) * SudokuSize + (Teller % SudokuSize);
+      return Knr;
+   }
+   
+  
+  -->
+  </script>
+  <body onLoad ="LaadCanvas()">  
+  <h1><center>Sudokusolver</center></h1>
+  <div class = "knoppenpaneel">
+    <center>
+    <fieldset>
+    <form name = "controleknoppen" style="clear: both">                      
+      Size:
+      <select id = "idSudokuSize" name = "SudokuGrootte" onChange= "JavaScript: VeranderSudokuSize()">
+        <option selected value  = "2"> 2x2
+        <option selected value  = "3"> 3x3
+        <option value  = "4"> 4x4
+      </select>        
+        <button class="Oplossen" name="btnOplossen" value="1" type="button" onClick="JavaScript: SolveSudoku();">Solve</button>
+        <button class="ClearSolved" name="clearsolved" value="1" type="button" onClick="JavaScript: WisBerekendeGetallen();">Clear Solved</button>
+        <button class="Nieuwe Puzzel" name="newkenken" value="1" type="button" onClick="JavaScript: NieuweSudoku();">Clear All</button>                          
+      </form></fieldset>     
+    </div></center>
+    <br>
+  <center>
+    <canvas id="myCanvas" Onclick= "SelectVeld(event)" width="472" height="472" style="border:1px solid #000000;">
+    </canvas>          
+  </center><br>
+  <center>
+    <canvas id="cijfercanvas" Onclick= "SelectCijfer(event)" width="432" height="48" style="border:1px solid #000000;">
+    </canvas>          
+  </center><br>
+  </body> 
+</html>
